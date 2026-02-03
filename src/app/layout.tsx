@@ -1,9 +1,15 @@
 import type { Metadata } from "next";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
+const jakarta = Plus_Jakarta_Sans({ 
+  subsets: ["latin"],
+  variable: "--font-jakarta",
+});
+
 export const metadata: Metadata = {
-  title: "Chatbot Framework - Admin Dashboard",
-  description: "Configure and deploy your custom chatbot widget",
+  title: "Nyx Chat",
+  description: "Build and deploy intelligent AI chatbots",
 };
 
 export default function RootLayout({
@@ -12,8 +18,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="antialiased">
+    <html lang="en" className="dark">
+      <body className={`${jakarta.variable} font-sans antialiased`}>
         {children}
       </body>
     </html>
