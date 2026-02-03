@@ -54,12 +54,15 @@ Match/beat WebFX Bronze-Silver tier at better pricing.
 - [ ] Basic analytics: message count, daily volume, top questions
 - [ ] Export conversations (CSV)
 
-## Phase 4: Multi-tenant & Auth
+## Phase 4: Multi-tenant & Auth ⚠️ REQUIRED BEFORE PRODUCTION
 **Time: 3-4 hours**
 
-- [ ] Supabase auth integration
+- [ ] Supabase auth integration (login/signup)
+- [ ] User accounts with email verification
+- [ ] API keys encrypted at rest (not localStorage)
+- [ ] Server-side key storage (never expose to client after entry)
 - [ ] User can create multiple chatbots
-- [ ] Per-chatbot API keys
+- [ ] Per-chatbot API keys tied to user account
 - [ ] Usage tracking per chatbot
 - [ ] Billing integration hooks
 

@@ -51,7 +51,10 @@ export default function AdminDashboard() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [docName, setDocName] = useState('');
   const [docContent, setDocContent] = useState('');
+  const [docUrl, setDocUrl] = useState('');
+  const [uploadMode, setUploadMode] = useState<'text' | 'url'>('text');
   const [uploading, setUploading] = useState(false);
+  const [scraping, setScraping] = useState(false);
   const [loadingDocs, setLoadingDocs] = useState(false);
 
   useEffect(() => {
@@ -104,6 +107,33 @@ export default function AdminDashboard() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const scrapeUrl = async () => {
+    if (!docUrl.trim()) return;
+    
+    setScraping(true);
+    try {
+      const res = await fetch('/api/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: docUrl }),
+      });
+      
+      const data = await res.json();
+      if (data.success) {
+        setDocName(data.title || new URL(docUrl).hostname);
+        setDocContent(data.content);
+        setUploadMode('text'); // Switch to text view to show extracted content
+      } else {
+        alert(`Scrape failed: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Scrape error:', error);
+      alert('Failed to scrape URL');
+    } finally {
+      setScraping(false);
+    }
+  };
+
   const uploadDocument = async () => {
     if (!docName.trim() || !docContent.trim()) return;
     if (!config.chatbotId) {
@@ -120,7 +150,8 @@ export default function AdminDashboard() {
           chatbotId: config.chatbotId,
           name: docName,
           content: docContent,
-          sourceType: 'text',
+          sourceType: docUrl ? 'url' : 'text',
+          sourceUrl: docUrl || undefined,
         }),
       });
       
@@ -129,6 +160,7 @@ export default function AdminDashboard() {
         setDocuments(prev => [data.document, ...prev]);
         setDocName('');
         setDocContent('');
+        setDocUrl('');
       } else if (data.error) {
         alert(`Upload failed: ${data.error}`);
       }
@@ -227,30 +259,6 @@ export default function AdminDashboard() {
                 </h2>
                 
                 <div className="space-y-5">
-                  {/* API Key */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-                      API Key
-                    </label>
-                    <div className="space-y-2">
-                      <input
-                        type="password"
-                        value={config.apiKey || ''}
-                        onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
-                        className="w-full px-3 py-2.5 rounded-lg text-sm font-mono"
-                        style={{ 
-                          background: 'var(--bg-secondary)', 
-                          border: '1px solid var(--border)',
-                          color: 'var(--text-primary)'
-                        }}
-                        placeholder="sk-... or AIza..."
-                      />
-                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                        {config.apiKey ? '✓ Key saved locally' : 'Required for AI responses'}
-                      </p>
-                    </div>
-                  </div>
-
                   {/* Model */}
                   <div>
                     <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
@@ -285,8 +293,27 @@ export default function AdminDashboard() {
                         <option value="gemini-3-pro">Gemini 3 Pro</option>
                       </optgroup>
                     </select>
+                  </div>
+
+                  {/* API Key */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                      API Key
+                    </label>
+                    <input
+                      type="password"
+                      value={config.apiKey || ''}
+                      onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
+                      className="w-full px-3 py-2.5 rounded-lg text-sm font-mono"
+                      style={{ 
+                        background: 'var(--bg-secondary)', 
+                        border: '1px solid var(--border)',
+                        color: 'var(--text-primary)'
+                      }}
+                      placeholder={config.model?.startsWith('gpt') ? 'sk-...' : config.model?.startsWith('claude') ? 'sk-ant-...' : 'AIza...'}
+                    />
                     <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-                      Requires matching API key above
+                      {config.apiKey ? '✓ Key saved' : `Required for ${config.model?.startsWith('gpt') ? 'OpenAI' : config.model?.startsWith('claude') ? 'Anthropic' : 'Google'}`}
                     </p>
                   </div>
 
@@ -537,55 +564,116 @@ export default function AdminDashboard() {
               <h2 className="text-xs font-medium mb-4" style={{ color: 'var(--text-muted)' }}>
                 ADD DOCUMENT
               </h2>
+
+              {/* Mode Switcher */}
+              <div className="flex gap-2 mb-4">
+                <button
+                  onClick={() => setUploadMode('text')}
+                  className="flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all"
+                  style={{
+                    background: uploadMode === 'text' ? 'var(--text-primary)' : 'var(--bg-secondary)',
+                    color: uploadMode === 'text' ? 'var(--bg-primary)' : 'var(--text-muted)',
+                    border: `1px solid ${uploadMode === 'text' ? 'var(--text-primary)' : 'var(--border)'}`,
+                  }}
+                >
+                  Paste Text
+                </button>
+                <button
+                  onClick={() => setUploadMode('url')}
+                  className="flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all"
+                  style={{
+                    background: uploadMode === 'url' ? 'var(--text-primary)' : 'var(--bg-secondary)',
+                    color: uploadMode === 'url' ? 'var(--bg-primary)' : 'var(--text-muted)',
+                    border: `1px solid ${uploadMode === 'url' ? 'var(--text-primary)' : 'var(--border)'}`,
+                  }}
+                >
+                  Import URL
+                </button>
+              </div>
               
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-                    Name
-                  </label>
-                  <input
-                    type="text"
-                    value={docName}
-                    onChange={(e) => setDocName(e.target.value)}
-                    placeholder="FAQ, Product Info, etc."
-                    className="w-full px-3 py-2.5 rounded-lg text-sm"
-                    style={{ 
-                      background: 'var(--bg-secondary)', 
-                      border: '1px solid var(--border)',
-                      color: 'var(--text-primary)'
-                    }}
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-                    Content
-                  </label>
-                  <textarea
-                    value={docContent}
-                    onChange={(e) => setDocContent(e.target.value)}
-                    rows={12}
-                    placeholder="Paste content here..."
-                    className="w-full px-3 py-2.5 rounded-lg text-sm resize-none font-mono"
-                    style={{ 
-                      background: 'var(--bg-secondary)', 
-                      border: '1px solid var(--border)',
-                      color: 'var(--text-primary)'
-                    }}
-                  />
-                  <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-                    {docContent.length.toLocaleString()} chars · ~{Math.max(1, Math.ceil(docContent.split(/\s+/).filter(Boolean).length / 500))} chunks
-                  </p>
-                </div>
+                {uploadMode === 'url' ? (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                        URL
+                      </label>
+                      <input
+                        type="url"
+                        value={docUrl}
+                        onChange={(e) => setDocUrl(e.target.value)}
+                        placeholder="https://example.com/page"
+                        className="w-full px-3 py-2.5 rounded-lg text-sm"
+                        style={{ 
+                          background: 'var(--bg-secondary)', 
+                          border: '1px solid var(--border)',
+                          color: 'var(--text-primary)'
+                        }}
+                      />
+                    </div>
+                    <button
+                      onClick={scrapeUrl}
+                      disabled={!docUrl.trim() || scraping}
+                      className="w-full px-4 py-2.5 rounded-lg text-sm font-medium transition-opacity hover:opacity-80 disabled:opacity-40"
+                      style={{ background: 'var(--text-primary)', color: 'var(--bg-primary)' }}
+                    >
+                      {scraping ? 'Extracting...' : 'Extract Content'}
+                    </button>
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                      Extracts readable text from the page. Review before uploading.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                        Name
+                      </label>
+                      <input
+                        type="text"
+                        value={docName}
+                        onChange={(e) => setDocName(e.target.value)}
+                        placeholder="FAQ, Product Info, etc."
+                        className="w-full px-3 py-2.5 rounded-lg text-sm"
+                        style={{ 
+                          background: 'var(--bg-secondary)', 
+                          border: '1px solid var(--border)',
+                          color: 'var(--text-primary)'
+                        }}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                        Content
+                      </label>
+                      <textarea
+                        value={docContent}
+                        onChange={(e) => setDocContent(e.target.value)}
+                        rows={10}
+                        placeholder="Paste content here..."
+                        className="w-full px-3 py-2.5 rounded-lg text-sm resize-none font-mono"
+                        style={{ 
+                          background: 'var(--bg-secondary)', 
+                          border: '1px solid var(--border)',
+                          color: 'var(--text-primary)'
+                        }}
+                      />
+                      <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+                        {docContent.length.toLocaleString()} chars · ~{Math.max(1, Math.ceil(docContent.split(/\s+/).filter(Boolean).length / 500))} chunks
+                      </p>
+                    </div>
 
-                <button
-                  onClick={uploadDocument}
-                  disabled={!docName.trim() || !docContent.trim() || uploading}
-                  className="w-full px-4 py-2.5 rounded-lg text-sm font-medium transition-opacity hover:opacity-80 disabled:opacity-40"
-                  style={{ background: 'var(--text-primary)', color: 'var(--bg-primary)' }}
-                >
-                  {uploading ? 'Processing...' : 'Upload'}
-                </button>
+                    <button
+                      onClick={uploadDocument}
+                      disabled={!docName.trim() || !docContent.trim() || uploading}
+                      className="w-full px-4 py-2.5 rounded-lg text-sm font-medium transition-opacity hover:opacity-80 disabled:opacity-40"
+                      style={{ background: 'var(--text-primary)', color: 'var(--bg-primary)' }}
+                    >
+                      {uploading ? 'Processing...' : 'Upload'}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
